@@ -1,92 +1,52 @@
-# -*- coding: utf-8 -*-
-"""Scorecard Alerter.ipynb
-
-Updated script for practical and clear data analysis in healthcare metrics with test cases.
-
-Original file location:
-    https://colab.research.google.com/drive/1vMHHxAvBvYJazwbr9rC_Jw9QvEY_43jC
-"""
-
+import pandas as pd
 import numpy as np
 
-def check_data_point(value, mean, std_dev):
-    """
-    Classify a data point as sane, borderline, or insane, providing clear explanations.
-    This function uses hardcoded thresholds to determine classifications.
-    """
-    sane_lower, sane_upper = mean - std_dev, mean + std_dev
-    borderline_lower, borderline_upper = mean - 2*std_dev, mean + 2*std_dev
+def load_metric_data(filepath):
+    data = pd.read_csv(filepath)
+    data['SNP_MONTH_YR'] = pd.to_datetime(data['SNP_MONTH_YR'], format='%b-%Y')
+    return data
 
-    if value < borderline_lower or value > borderline_upper:
-        return "Insane"
-    elif value < sane_lower or value > sane_upper:
-        return "Borderline"
-    else:
-        return "Sane"
+def calculate_statistics(data, metric, pavilion):
+    historical_data = data[(data['MEAS'] == metric) & (data['PAV_NAME'] == pavilion)]
+    historical_data = historical_data[historical_data['SNP_MONTH_YR'] < historical_data['SNP_MONTH_YR'].max()]
+    if not historical_data.empty:
+        mean = historical_data['FYTD_P'].mean()
+        std_dev = historical_data['FYTD_P'].std()
+        return mean, std_dev
+    return None, None
 
-# Example metrics with realistic means and variability
-metrics = {
-    "30-day Readmission": {"mean": 15, "std_dev": 3},
-    "HTN: Controlling High BP": {"mean": 70, "std_dev": 5}
-}
-
-# Hardcoded examples for each metric showing different classifications based on standard deviations from the mean.
-# this will be replaced from either an AutoSuggester Value or manual file.
-hardcoded_values = {
-    "30-day Readmission": {
-        # 'Sane' value: 14% readmission rate, which means 14 out of every 100 patients discharged from the hospital 
-        # are readmitted within 30 days. This rate is considered 'sane' because it falls within one standard deviation (SD) 
-        # from the mean (average) of 15%, indicating it is a common and expected outcome within the current operational performance.
-        "sane": 14,  # Within 1 SD from mean
-        
-        # 'Borderline' value: 20% readmission rate. This indicates a higher-than-average scenario where 20 out of every 100 
-        # patients are readmitted. Being exactly 2 SDs from the mean, this rate is borderline—it’s unusual but not extreme enough 
-        # to be alarming. It serves as a warning signal that some factors might be adversely affecting patient outcomes.
-        "borderline": 20,  # Exactly 2 SD from mean
-        
-        # 'Insane' value: 25% readmission rate, which is significantly higher than the mean. This rate suggests that 25 out of 
-        # every 100 patients are being readmitted within 30 days. Since it’s more than 2 SDs from the mean, it is considered 
-        # 'insane'—a rare and critical indicator that potentially serious issues need immediate attention.
-        "insane": 25  # More than 2 SD from mean, very unusual
-    },
-    "HTN: Controlling High BP": {
-        # 'Sane' value: 68% control rate means that 68 out of 100 patients with high blood pressure are successfully managing 
-        # their condition under current health interventions. This rate is within one standard deviation from the mean of 70%, 
-        # showing that it's a typical and effective rate of control, aligning with expected healthcare management outcomes.
-        "sane": 68,  # Within 1 SD from mean
-        
-        # 'Borderline' value: 80% control rate is higher than usual—80 out of 100 patients have their high blood pressure under 
-        # control. This rate is at the boundary of 2 SDs from the mean, categorizing it as borderline. It indicates very good 
-        # performance but needs to be monitored for consistency or potential data inaccuracies.
-        "borderline": 80,  # Exactly 2 SD from mean
-        
-        # 'Insane' value: 85% control rate is exceptionally high and far exceeds the average. It means 85 out of every 100 
-        # patients are controlling their high blood pressure effectively. Being more than 2 SDs from the mean, this rate is 
-        # considered 'insane'—it’s an extraordinary and uncommon outcome that could suggest exceptionally effective treatment 
-        # strategies or possibly data errors or anomalies.
-        "insane": 85  # More than 2 SD from mean, very unusual
-    }
-}
-
-
-# Test cases to confirm the classification logic
-def test_metric_classification():
-    print("Testing Metric Classifications:")
-    for metric, values in hardcoded_values.items():
-        mean = metrics[metric]["mean"]
-        std_dev = metrics[metric]["std_dev"]
+def validate_latest_month(data, mean, std_dev):
+    latest_month_data = data[data['SNP_MONTH_YR'] == data['SNP_MONTH_YR'].max()]
+    results = {}
+    for index, row in latest_month_data.iterrows():
+        metric_value = row['FYTD_P']
+        metric_abbr = row['METRIC_ABBR']
+        if pd.isnull(metric_value):
+            results[metric_abbr] = {'Classification': 'Data Missing'}
+            continue
         sane_range = (mean - std_dev, mean + std_dev)
-        borderline_range = (mean - 2*std_dev, mean + 2*std_dev)
-        insane_range = f"<{borderline_range[0]:.2f}% or >{borderline_range[1]:.2f}%"
-        print(f"\nMetric: {metric}")
-        print(f"  Sane Range: {sane_range[0]:.2f}% to {sane_range[1]:.2f}%")
-        print(f"  Borderline Range: {borderline_range[0]:.2f}% to {borderline_range[1]:.2f}%")
-        print(f"  Insane Range: {insane_range}")
-        for category, value in values.items():
-            expected = category.capitalize()
-            actual = check_data_point(value, mean, std_dev)
-            result = "Pass" if actual == expected else "Fail"
-            print(f"  Test {category.capitalize()} ({value}%): Expected = {expected}, Actual = {actual} -> {result}")
+        borderline_range = (mean - 2 * std_dev, mean + 2 * std_dev)
+        classification = 'Sane' if metric_value in sane_range else 'Borderline' if metric_value in borderline_range else 'Insane'
+        results[metric_abbr] = {
+            'Classification': classification,
+            'Value': metric_value,
+            'Mean': mean,
+            'Standard Deviation': std_dev,
+            'Sane Range': sane_range,
+            'Borderline Range': borderline_range
+        }
+    return results
 
-# Run the test cases
-test_metric_classification()
+def analyze_metrics(filepath):
+    data = load_metric_data(filepath)
+    metrics = data['MEAS'].unique()
+    pavilions = data['PAV_NAME'].unique()
+    for pavilion in pavilions:
+        for metric in metrics:
+            mean, std_dev = calculate_statistics(data, metric, pavilion)
+            if mean is not None and std_dev is not None:
+                validation_results = validate_latest_month(data[(data['MEAS'] == metric) & (data['PAV_NAME'] == pavilion)], mean, std_dev)
+                latest_date = data['SNP_MONTH_YR'].max().strftime('%b-%Y')
+                print(f"Validation Results for {metric} in {pavilion} as of {latest_date}: {validation_results}")
+
+analyze_metrics('metric_data.csv')
