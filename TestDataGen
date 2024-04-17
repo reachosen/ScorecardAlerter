@@ -1,0 +1,88 @@
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+def generate_metric_data(start_date, end_date, num_insane, num_borderline, num_sane):
+    """
+    Generates a dataset with sane, borderline, and insane values for healthcare metrics.
+    
+    Args:
+        start_date (str): Start date for data generation in 'YYYY-MM-DD' format.
+        end_date (str): End date for data generation in 'YYYY-MM-DD' format.
+        num_insane (int): Number of insane data points to generate.
+        num_borderline (int): Number of borderline data points to generate.
+        num_sane (int): Number of sane data points to generate.
+    
+    Returns:
+        DataFrame: A DataFrame with generated metric data including different classifications.
+    """
+    months = pd.date_range(start=start_date, end=end_date, freq='MS')
+    metric_info = {
+        "RDMS": {
+            "MEAS": "30-day Readmission",
+            "METRIC_TARGET": 0.098,  # Target readmission rate
+            "sane_range": (0.095, 0.101),  # Sane range for data generation
+            "borderline_range": (0.093, 0.103),  # Borderline range
+            "insane_range": (0.080, 0.120)  # Insane range
+        },
+        "HTNBP": {
+            "MEAS": "HTN: Controlling High BP",
+            "METRIC_TARGET": 0.70,
+            "sane_range": (0.67, 0.73),
+            "borderline_range": (0.65, 0.75),
+            "insane_range": (0.60, 0.80)
+        }
+    }
+    
+    data = []
+    for abbr, info in metric_info.items():
+        # Generate sane data points
+        for _ in range(num_sane):
+            for month in months:
+                data.append({
+                    "SNP_MONTH_YR": month.strftime('%b-%Y'),
+                    "METRIC_ABBR": abbr,
+                    "PAV_NAME": "Main Pavilion" if abbr == "RDMS" else "East Pavilion",
+                    "MEAS": info["MEAS"],
+                    "METRIC_TARGET": info["METRIC_TARGET"],
+                    "FYTD_P": np.random.uniform(info["sane_range"][0], info["sane_range"][1]),
+                    "DATA_AS_OF": month.strftime('%b-%Y')
+                })
+        # Generate borderline data points
+        for _ in range(num_borderline):
+            for month in months:
+                data.append({
+                    "SNP_MONTH_YR": month.strftime('%b-%Y'),
+                    "METRIC_ABBR": abbr,
+                    "PAV_NAME": "Main Pavilion" if abbr == "RDMS" else "East Pavilion",
+                    "MEAS": info["MEAS"],
+                    "METRIC_TARGET": info["METRIC_TARGET"],
+                    "FYTD_P": np.random.uniform(info["borderline_range"][0], info["borderline_range"][1]),
+                    "DATA_AS_OF": month.strftime('%b-%Y')
+                })
+        # Generate insane data points
+        for _ in range(num_insane):
+            for month in months:
+                data.append({
+                    "SNP_MONTH_YR": month.strftime('%b-%Y'),
+                    "METRIC_ABBR": abbr,
+                    "PAV_NAME": "Main Pavilion" if abbr == "RDMS" else "East Pavilion",
+                    "MEAS": info["MEAS"],
+                    "METRIC_TARGET": info["METRIC_TARGET"],
+                    "FYTD_P": np.random.choice([np.random.uniform(info["insane_range"][0], info["sane_range"][0]),
+                                                np.random.uniform(info["sane_range"][1], info["insane_range"][1])]),
+                    "DATA_AS_OF": month.strftime('%b-%Y')
+                })
+
+    return pd.DataFrame(data)
+
+# Parameters for data generation
+start_date = '2023-01-01'
+end_date = '2023-12-01'
+num_insane = 1  # Proportionally fewer insane data points
+num_borderline = 2  # Slightly more borderline than insane
+num_sane = 10  # Mostly sane data points
+
+# Generate data
+df = generate_metric_data(start_date, end_date, num_insane, num_borderline, num_sane)
+df.to_csv('metric_data.csv', index=False)
