@@ -25,8 +25,13 @@ def validate_latest_month(data, mean, std_dev):
             results[metric_abbr] = {'Classification': 'Data Missing'}
             continue
         sane_range = (mean - std_dev, mean + std_dev)
-        borderline_range = (mean - 2 * std_dev, mean + 2 * std_dev)
-        classification = 'Sane' if metric_value in sane_range else 'Borderline' if metric_value in borderline_range else 'Insane'
+        borderline_range = (mean - 2 * std_dev, mean + std_dev)  # Adjusted to exclude the 'Sane' upper boundary
+        if sane_range[0] <= metric_value < sane_range[1]:
+            classification = 'Sane'
+        elif (borderline_range[0] <= metric_value < sane_range[0]) or (sane_range[1] <= metric_value < borderline_range[1]):
+            classification = 'Borderline'
+        else:
+            classification = 'Insane'
         results[metric_abbr] = {
             'Classification': classification,
             'Value': metric_value,
