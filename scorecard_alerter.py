@@ -24,23 +24,31 @@ def validate_latest_month(data, mean, std_dev):
         if pd.isnull(metric_value):
             results[metric_abbr] = {'Classification': 'Data Missing'}
             continue
-        # Define ranges ensuring no overlap
+        # Define non-overlapping ranges
         sane_range = (mean - std_dev, mean + std_dev)
-        borderline_range = (mean - 2 * std_dev, mean - std_dev) + (mean + std_dev, mean + 2 * std_dev)
-        # Classify based on non-overlapping ranges
-        if sane_range[0] <= metric_value < sane_range[1]:
-            classification = 'Sane'
-        elif (borderline_range[0] <= metric_value < sane_range[0]) or (borderline_range[2] <= metric_value < borderline_range[3]):
+        borderline_lower_range = (mean - 2 * std_dev, mean - std_dev)
+        borderline_upper_range = (mean + std_dev, mean + 2 * std_dev)
+        # Classify metric values
+        if borderline_lower_range[0] <= metric_value < borderline_lower_range[1]:
             classification = 'Borderline'
-        else:
+        elif borderline_upper_range[0] <= metric_value < borderline_upper_range[1]:
+            classification = 'Borderline'
+        elif sane_range[0] <= metric_value < sane_range[1]:
+            classification = 'Sane'
+        elif metric_value < borderline_lower_range[0]:
             classification = 'Insane'
+        elif metric_value >= borderline_upper_range[1]:
+            classification = 'Insane'
+        else:
+            classification = 'Unclassified'  # Catch-all for unexpected cases
+
         results[metric_abbr] = {
             'Classification': classification,
             'Value': metric_value,
             'Mean': mean,
             'Standard Deviation': std_dev,
             'Sane Range': sane_range,
-            'Borderline Range': borderline_range
+            'Borderline Range': (borderline_lower_range, borderline_upper_range)
         }
     return results
 
