@@ -23,8 +23,11 @@ def suggest_ranges(stats):
     """
     stats['Sane Range'] = stats.apply(lambda x: (x['mean'] - x['std'], x['mean'] + x['std']), axis=1)
     stats['Borderline Range'] = stats.apply(
-        lambda x: (max(x['mean'] - 2 * x['std'], x['Sane Range'][0] - x['std']),
-                   min(x['mean'] + 2 * x['std'], x['Sane Range'][1] + x['std'])), axis=1)
+        lambda x: (x['mean'] - 2 * x['std'], x['mean'] + 2 * x['std']), axis=1)
+    # Adjusted ranges to be mutually exclusive
+    stats['Adjusted Sane Range'] = stats['Sane Range']
+    stats['Adjusted Borderline Range'] = stats.apply(
+        lambda x: (x['Borderline Range'][0], x['Adjusted Sane Range'][0]) + (x['Adjusted Sane Range'][1], x['Borderline Range'][1]), axis=1)
     return stats
 
 def output_ranges(stats):
@@ -34,8 +37,8 @@ def output_ranges(stats):
     for _, row in stats.iterrows():
         print(f"Metric: {row['MEAS']} in {row['PAV_NAME']}")
         print(f"  Mean: {row['mean']:.2f}, Std Dev: {row['std']:.2f}")
-        print(f"  Sane Range: {row['Sane Range'][0]:.2f}% to {row['Sane Range'][1]:.2f}%")
-        print(f"  Borderline Range: {row['Borderline Range'][0]:.2f}% to {row['Borderline Range'][1]:.2f}%")
+        print(f"  Sane Range: {row['Adjusted Sane Range'][0]:.2f}% to {row['Adjusted Sane Range'][1]:.2f}%")
+        print(f"  Borderline Range: {row['Adjusted Borderline Range'][0]:.2f}% to {row['Adjusted Borderline Range'][1]:.2f}%")
         print()
 
 def autoband_suggester(filepath):
