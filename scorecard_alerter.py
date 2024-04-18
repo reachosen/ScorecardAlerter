@@ -24,11 +24,13 @@ def validate_latest_month(data, mean, std_dev):
         if pd.isnull(metric_value):
             results[metric_abbr] = {'Classification': 'Data Missing'}
             continue
+        # Define ranges ensuring no overlap
         sane_range = (mean - std_dev, mean + std_dev)
-        borderline_range = (mean - 2 * std_dev, mean + std_dev)  # Adjusted to exclude the 'Sane' upper boundary
+        borderline_range = (mean - 2 * std_dev, mean - std_dev) + (mean + std_dev, mean + 2 * std_dev)
+        # Classify based on non-overlapping ranges
         if sane_range[0] <= metric_value < sane_range[1]:
             classification = 'Sane'
-        elif (borderline_range[0] <= metric_value < sane_range[0]) or (sane_range[1] <= metric_value < borderline_range[1]):
+        elif (borderline_range[0] <= metric_value < sane_range[0]) or (borderline_range[2] <= metric_value < borderline_range[3]):
             classification = 'Borderline'
         else:
             classification = 'Insane'
