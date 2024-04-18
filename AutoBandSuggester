@@ -19,10 +19,12 @@ def calculate_statistics(data):
 
 def suggest_ranges(stats):
     """
-    Suggest sane, borderline, and insane ranges based on mean and standard deviation.
+    Suggest sane, borderline, and insane ranges based on mean and standard deviation, ensuring no overlap.
     """
     stats['Sane Range'] = stats.apply(lambda x: (x['mean'] - x['std'], x['mean'] + x['std']), axis=1)
-    stats['Borderline Range'] = stats.apply(lambda x: (x['mean'] - 2 * x['std'], x['mean'] + 2 * x['std']), axis=1)
+    stats['Borderline Range'] = stats.apply(
+        lambda x: (max(x['mean'] - 2 * x['std'], x['Sane Range'][0] - x['std']),
+                   min(x['mean'] + 2 * x['std'], x['Sane Range'][1] + x['std'])), axis=1)
     return stats
 
 def output_ranges(stats):
